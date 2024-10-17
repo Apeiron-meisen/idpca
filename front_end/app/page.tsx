@@ -1,9 +1,11 @@
-import Image from "next/image";
-
+import Transition from "@/components/Transition";
 import Issue from "@/components/Issue";
+
 export default function Home() {
   
   return (
-    <Issue/>
+    <Transition>
+      <Issue/>
+    </Transition>
   );
 }

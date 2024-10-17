@@ -1,21 +1,20 @@
 'use client'
-import React,{useState,ChangeEvent, useEffect, MouseEventHandler} from 'react'
+import React,{useState,ChangeEvent, useEffect, } from 'react'
 import { IssueType } from '@/app/type/type'
-import {Zen_Kurenaido, Zen_Kaku_Gothic_Antique} from "next/font/google";
-import { Fugaz_One } from "next/font/google";
-const fugaz = Fugaz_One({subsets: ["latin"], weight: ["400"]});
-//设定字体
-const zen_kurenaido = Zen_Kurenaido({subsets:["cyrillic"],weight:"400"})
-const z = Zen_Kaku_Gothic_Antique({subsets:["latin-ext"], weight:"900"})
-
-
+import useScrollNavigation from './useScrollNavigation'
+import { useIssueContext } from '@/app/utils/IssueContext'
 
 export default function Issue() {
+  useScrollNavigation ()
+  const {setIssue_id, issue_id} = useIssueContext()
+  // console.log("side issue_id: ", issue_id)
   //需要用json事先初始化
   const [input_issue, setInput_issue] = useState<IssueType>({title: '',description: ''})
   const [fetch_issues, setFetch_issues] = useState<IssueType[]>([])
   const [management, setManagement] = useState<boolean>(false)
-  const [selected_issue, setSelected_issue] = useState<number>(0)
+  const [selected_issue, setSelected_issue] = useState<IssueType>({title: '',description:''})
+
+
   //useEffect 
   useEffect(()=>{
 
@@ -27,14 +26,14 @@ export default function Issue() {
           throw new Error('Failed to fetch issues');
         }else{
           const data = await response.json()
-          console.log("data: " + JSON.stringify(data))
           setFetch_issues(data)
         }
       }
       fetch_from_db() 
     }else{
-      setSelected_issue(0)
+      // setSelected_issue(0)
     }
+    
   },[management])
   //不需要设置参数，全局共享state
   async function store_issue(){
@@ -48,6 +47,8 @@ export default function Issue() {
     })
     if(!response.ok) {throw new Error(`HTTP error! status: ${response.status}`)}
     else {
+      const issue:number = await response.json()
+      setIssue_id(issue.toString())
       alert("データが格納されました。")
     }
     }
@@ -60,8 +61,10 @@ export default function Issue() {
   function toggle_management_mode(){
     setManagement(previous_mode => !previous_mode)
   }
-  function handle_content_change_in_management_mode(index:number):void{
-    setSelected_issue(index + 1)
+  function handle_content_change_in_management_mode(issue:IssueType):void{
+    
+    setIssue_id(issue.id?issue.id.toString():"")
+    setSelected_issue(issue)
   }
 
 
@@ -86,7 +89,7 @@ export default function Issue() {
                 return(
                   <button  onClick={
                     ()=>{
-                    handle_content_change_in_management_mode(index)
+                    handle_content_change_in_management_mode(issue)
                   
                   }
                   } key={index} className='flex flex-col gap-2 sm:gap-4 md:gap-8 hover:opacity-60 duration-200'>
@@ -98,9 +101,9 @@ export default function Issue() {
               </div>
             </div>
             <div className='flex flex-col gap-1 sm:gap-3 md:gap-5 py-2'>
-              <p>課題タイトル：{selected_issue===0?input_issue.title:fetch_issues[selected_issue-1].title}</p>
+              <p>課題タイトル：{selected_issue.id?selected_issue.title:input_issue.title}</p>
               <p>課題内容：</p>
-              <p>{selected_issue === 0?input_issue.description:fetch_issues[selected_issue-1].description}</p>
+              <p>{selected_issue.id?selected_issue.description:input_issue.description}</p>
 
             </div>
           </div>

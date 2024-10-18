@@ -3,9 +3,11 @@ import React,{useState, useEffect,ChangeEvent} from 'react'
 import useScrollNavigation from './useScrollNavigation'
 import { PlanType } from '@/app/type/type'
 import { useIssueContext } from '@/app/utils/IssueContext'
+
 export default function Plan() {
   useScrollNavigation()
   const {issue_id, setIssue_id} = useIssueContext()
+
   //必须要有一个useContext，这个context包含了issue1个id，1个plan id，多个action id，1个evaluate id，1个advice id。
   //转换的时候如何？改变当前issue只能在issue的管理界面。改变当前plan也只能在plan的管理页面，但是告诉你目前的issue标题。行动页面上，可以添加很多不同的行动条目。评价页面上，要么自己写评价，要么生成评价。生成评价需要issue，plan和action的内容。最后是新的课题建议，可以自己写，也可以让AI生成。
   // 数据库的ER图得写出来。issue是主键也是其他表的外键，1对1，1对多两种关系。
@@ -36,8 +38,6 @@ export default function Plan() {
   //不需要设置参数，全局共享state
   //我觉得应该用泛型
   async function store_plan(){
-    console.log("current_issue_id: "+ issue_id )
-    console.log("store starting, state: " + JSON.stringify(input_plan))
     //post the backend server
     const response = await fetch('http://localhost:8000/save_plan',{
      method: 'POST',
@@ -65,10 +65,78 @@ export default function Plan() {
     //查找id
     setSelected_plan(plan)
   }
+// ---------------------------------------------------
+  // websocket + generate
+  //websocket
+  const [socket,setSocket] = useState<WebSocket|null>(null)
+  const [response, setResponse] = useState<string>('')
+  const [directive, setDirective] = useState<string>('')
+  
+  async function search_issue_description_by_id(id:string){
+    const url:URL = new URL("http://localhost:8000/fetch_issue_description_from_issue_id");
+  url.searchParams.append("issue_id", issue_id);  
+    const response = await fetch(url,{
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      if(!response.ok){throw new Error('Failed to fetch issues');}else{
+        const data = await response.json()
+        return data.description
+      }
+    
+  }
+
+
+async function generate_plan(){
+    if(socket && socket.readyState === WebSocket.OPEN){
+      const issue_description:string = await search_issue_description_by_id(issue_id)
+      // const issue_description= await result.split(":")[1]
+      console.log("plan, issue_description = ",issue_description)
+      const send_content:string = issue_description+','+directive
+      console.log('send_content = ',send_content)
+      setResponse('')
+      socket.send(send_content)
+    }else{
+      console.error('WebSocket is not open');
+    }
+  }
+  
+  function handle_directive_change(event:ChangeEvent<HTMLInputElement>){
+    setDirective(event.target.value)
+  }
+
+  useEffect(()=>{
+    if (!management){
+      const web_socket:WebSocket = new WebSocket('ws://localhost:8000/generate_content');
+      setSocket(web_socket)
+      web_socket.onopen = ()=>{
+        console.log('WebSocket connection opened');
+      }
+      web_socket.onmessage = (event) => {
+        setResponse(cur => cur + event.data);
+      };
+      
+      web_socket.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+  
+      web_socket.onclose = () => {
+        console.log('WebSocket connection closed');
+      };
+
+     
+
+      return ()=>{
+        web_socket.close();
+      }
+    }
+  },[directive,management])
 
 
   return (
-    <div className="p-1 sm:p-2 md:p-4 h-screen overflow-hidden">
+    <div className="p-1 sm:p-2 md:p-4  overflow-hidden w-full">
       <button
         onClick={toggle_management_mode}
         className="sm:mb-2 md:mb-4 sm:px-2 md:px-4 sm:py-1 md:py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
@@ -109,17 +177,31 @@ export default function Plan() {
         </div>
       ) : (
         // Normal mode content (e.g., input form)
-        <div className={'flex flex-col gap-2 sm:gap-5 md:gap-6 justify-center items-center'}>
-          <div className='flex flex-1'>
-            <div className={'text-indigo-400 w-[200px] py-2'}>計画タイトル</div>
-            <input type='text' name="title" value={input_plan?.title} onChange={handle_input_change} className='w-full max-w-[400px] px-2 py-1 border border-solid border-indigo-400 outline-none'/>
+        <div className='flex md:gap-60 '>
+          <div className={'flex flex-col gap-2 sm:gap-5 md:gap-6 justify-center items-center py-2'}>
+            <div className='flex flex-1'>
+              <div className={'text-indigo-400 w-[200px] py-2'}>計画タイトル</div>
+              <input type='text' name="title" value={input_plan?.title} onChange={handle_input_change} className='w-full max-w-[400px] px-2 py-1 border border-solid border-indigo-400 outline-none'/>
+            </div>
+            <div className='text-indigo-400'>計画内容</div>
+            <textarea name="content" value={input_plan?.content} onChange={handle_input_change} 
+            className='border border-solid border-indigo-400 w-full  h-[100px] focus:outline-none focus:ring-2 focus:ring-blue-500'
+            />
+            <div className='flex gap-5 sm:gap-10 md:gap-20 flex-1'>
+              <button onClick={store_plan} 
+              className='border-indigo-600 border-solid border-2 rounded-full overflow-hidden w-[150px]'>格納</button>
+            </div>
           </div>
-          <div className='text-indigo-400'>計画内容</div>
-          <textarea name="content" value={input_plan?.content} onChange={handle_input_change} 
-          className='border border-solid border-indigo-400 w-full  h-[100px] focus:outline-none focus:ring-2 focus:ring-blue-500'
-          />
-          <button onClick={store_plan} className='border-indigo-600 border-solid border-2 rounded-full overflow-hidden w-[150px]'>格納</button>
-          
+          <div className='flex flex-col md:gap-10 '>
+            <div className='flex items-center justify-between p-2 gap-4'>
+              <div className='text-indigo-400'>詳細指示：</div>
+              <input onBlur={handle_directive_change} type='text' className='  px-2 py-1 border border-solid border-indigo-400 outline-none'/>
+              <button onClick={generate_plan} className='hover:bg-blue-600 bg-blue-500 text-white border-indigo-600 border-solid border-2 rounded-full overflow-hidden md:p-1'>自動生成</button>
+            </div>
+            <div className='p-4 bg-white border-t overflow-auto'>
+              {response}
+            </div>
+          </div>
         </div>
       )}
     </div>

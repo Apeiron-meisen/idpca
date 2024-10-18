@@ -11,7 +11,7 @@ async def call_openai(messages:list):
     model="gpt-3.5-turbo",
     messages = messages,
     stream=True,
-    max_completion_tokens=80,
+    # max_completion_tokens=80,
   )
   async for chunk in response:
     # print(chunk.choices[0].delta.content, end='',flush=True)

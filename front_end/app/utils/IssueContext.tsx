@@ -3,7 +3,7 @@ import React ,{useContext,useState ,useEffect,createContext}from 'react'
 import { LayoutProps } from '../layout'
 const issue_context = createContext<{issue_id:string,setIssue_id:React.Dispatch<React.SetStateAction<string>>}>({
   issue_id: '',
-  setIssue_id: () => {} 
+  setIssue_id: () => {}
 })
 
 export function useIssueContext(){
@@ -12,6 +12,7 @@ export function useIssueContext(){
 
 export default function IssueProvider({children}:LayoutProps) {
   const [issue_id, setIssue_id] = useState<string>("1")
+  const [issue_content, setIssue_content] = useState<string>("")
   const value={
     issue_id,
     setIssue_id

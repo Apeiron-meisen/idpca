@@ -6,7 +6,7 @@ import { useIssueContext } from '@/app/utils/IssueContext'
 
 export default function Issue() {
   useScrollNavigation ()
-  const {setIssue_id, issue_id} = useIssueContext()
+  const {setIssue_id} = useIssueContext()
   // console.log("side issue_id: ", issue_id)
   //需要用json事先初始化
   const [input_issue, setInput_issue] = useState<IssueType>({title: '',description: ''})

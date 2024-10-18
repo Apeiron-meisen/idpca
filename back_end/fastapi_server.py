@@ -5,8 +5,8 @@ from openai_ import call_openai
 from dabatase_ import get_db
 from psycopg2.extensions import cursor
 from data_type import Issue, Plan
+from prompt import PLAN_TEMPLATE
 app = FastAPI()
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -15,6 +15,32 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
+@app.get("/fetch_issue_description_from_issue_id")
+def fetch_issue_description_from_issue_id(issue_id:str, db:cursor=Depends(get_db)):
+  print("issue_id: ", issue_id)
+  try:
+    db.execute(
+      query="SELECT description FROM issues WHERE id = %s",
+      vars=(issue_id,)
+    )
+    description:str = db.fetchone()["description"]
+    return {"description":description}
+  except Exception as e:
+    print(e)
+
+@app.websocket("/generate_content")
+async def generate_content(websocket:WebSocket):
+  await websocket.accept()
+  request_message = []
+  while True:
+    user_message= await websocket.receive_text()
+    print(user_message)
+    arr = user_message.split(',')
+    request_message.append({"role":"system","content":"あなたは専門的なプロジェクトマネージャーです。課題内容と計画タイトルに基づいてアクションプランを作成してください。"})
+    request_message.append({"role":"user","content":PLAN_TEMPLATE.format(issue_content = arr[0],directive=arr[1])})
+    async for char in call_openai(request_message):
+      if char:
+        await websocket.send_text(char)
   
 @app.post("/save_issue")
 def store_issue(issue:Issue, db:cursor=Depends(get_db)):

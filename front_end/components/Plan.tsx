@@ -15,6 +15,10 @@ export default function Plan() {
   const [fetch_plans, setFetch_plans] = useState<PlanType[]>([])
   const [management, setManagement] = useState<boolean>(false)
   const [selected_plan, setSelected_plan] = useState<PlanType>({content: '',title: '',issue_id: +issue_id})
+
+  const [socket,setSocket] = useState<WebSocket|null>(null)
+  const [response_from_gpt, setResponse_from_gpt] = useState<string>('')
+  const [directive, setDirective] = useState<string>('')
   //删除会导致列表的序列与issue的序列号不同。
   //得要有一个函数让它们二者一一对应。
   //解决办法是直接返回一个受点击的选定Plan对象，里面一一对应了plan和issue的id。
@@ -50,7 +54,21 @@ export default function Plan() {
     else {
       alert("データが格納されました。")
     }
-    }
+  }
+  
+  async function store_response(){
+    const response = await fetch('http://localhost:8000/save_plan_generated_from_chatGPT',{
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({"title":input_plan.title,"content":response_from_gpt,"issue_id":issue_id})
+     })
+     if(!response.ok) {throw new Error(`HTTP error! status: ${response.status}`)}
+     else {
+       alert("データが格納されました。")
+     }
+  }
 
   function handle_input_change(event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>){
     const {name,value } = event.target
@@ -68,9 +86,7 @@ export default function Plan() {
 // ---------------------------------------------------
   // websocket + generate
   //websocket
-  const [socket,setSocket] = useState<WebSocket|null>(null)
-  const [response, setResponse] = useState<string>('')
-  const [directive, setDirective] = useState<string>('')
+  
   
   async function search_issue_description_by_id(id:string){
     const url:URL = new URL("http://localhost:8000/fetch_issue_description_from_issue_id");
@@ -96,7 +112,7 @@ async function generate_plan(){
       console.log("plan, issue_description = ",issue_description)
       const send_content:string = issue_description+','+directive
       console.log('send_content = ',send_content)
-      setResponse('')
+      setResponse_from_gpt('')
       socket.send(send_content)
     }else{
       console.error('WebSocket is not open');
@@ -115,7 +131,7 @@ async function generate_plan(){
         console.log('WebSocket connection opened');
       }
       web_socket.onmessage = (event) => {
-        setResponse(cur => cur + event.data);
+        setResponse_from_gpt(cur => cur + event.data);
       };
       
       web_socket.onerror = (error) => {
@@ -125,8 +141,6 @@ async function generate_plan(){
       web_socket.onclose = () => {
         console.log('WebSocket connection closed');
       };
-
-     
 
       return ()=>{
         web_socket.close();
@@ -198,8 +212,12 @@ async function generate_plan(){
               <input onBlur={handle_directive_change} type='text' className='  px-2 py-1 border border-solid border-indigo-400 outline-none'/>
               <button onClick={generate_plan} className='hover:bg-blue-600 bg-blue-500 text-white border-indigo-600 border-solid border-2 rounded-full overflow-hidden md:p-1'>自動生成</button>
             </div>
-            <div className='p-4 bg-white border-t overflow-auto'>
-              {response}
+            <div className='p-4 bg-white h-full border-t overflow-auto'>
+              {response_from_gpt}
+            </div>
+            <div className='flex gap-5 sm:gap-10 md:gap-20 flex-1 items-center justify-center'>
+              <button onClick={store_response} 
+              className='border-indigo-600 border-solid border-2 rounded-full overflow-hidden w-[160px] h-[30px]'>格納</button>
             </div>
           </div>
         </div>

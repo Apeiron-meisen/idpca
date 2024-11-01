@@ -5,10 +5,22 @@ export interface IssueType{
 }
 
 export interface PlanType{
-  id?:number
+  id?:number,
   content:string,
-  title:string
+  title:string,
   issue_id: number
+}
+export interface ActionType{
+  id?:number,
+  content:string,
+  title:string,
+  issue_id:number
+}
+export interface EvaluationType{
+  id?:number,
+  content:string,
+  title: string,
+  issue_id: number,
 }
 
 
